@@ -1,47 +1,39 @@
 import streamlit as st
 import spacy
+import pandas as pd
+from spacy import displacy
 
-# Load trained NER model
-model_path = "trained_ner_model/model-best"  # Path to the best trained model
-nlp = spacy.load(model_path)
+# Load trained NER model once
+@st.cache_resource
+def load_model():
+    model_path = "trained_ner_model/model-best"  # Path to the best trained model
+    return spacy.load(model_path)
+
+nlp = load_model()
 
 st.title("Named Entity Recognition (NER) Agent")
 
 # User input
 user_input = st.text_area("Enter text for entity extraction:")
 
-def highlight_entities(text, entities):
-    for entity, label in entities:
-        text = text.replace(entity, f'<mark class="{label}">{entity}</mark>')
-    return text
+def filter_entities(doc):
+    return [ent for ent in doc.ents if ent.label_ in {"PERSON", "DATE", "ORG", "GPE", "EVENT"}]
 
 if st.button("Analyze"):
     if user_input:
         doc = nlp(user_input)
-        entities = [(ent.text, ent.label_) for ent in doc.ents]
-        if entities:
+        filtered_entities = filter_entities(doc)
+        if filtered_entities:
             st.write("### Extracted Entities:")
-            for entity, label in entities:
-                st.write(f"- **{entity}** ({label})")
+            # Display filtered entities in a table
+            entities = [(ent.text, ent.label_) for ent in filtered_entities]
+            df = pd.DataFrame(entities, columns=["Entity", "Label"])
+            st.table(df)
             
-            # Highlight entities in the text
-            highlighted_text = highlight_entities(user_input, entities)
-            st.markdown(f'<div>{highlighted_text}</div>', unsafe_allow_html=True)
-            
-            # Legend
-            st.write("### Legend:")
-            labels = set(label for _, label in entities)
-            for label in labels:
-                st.markdown(f'<span class="{label}">{label}</span>', unsafe_allow_html=True)
+            # Highlight entities in the text using displacy
+            html = displacy.render(doc, style="ent", jupyter=False, options={"ents": ["PERSON", "DATE", "ORG", "GPE", "EVENT"]})
+            st.markdown(html, unsafe_allow_html=True)
         else:
-            st.write("No named entities found.")
-
-# CSS for highlighting
-st.markdown("""
-    <style>
-    .PERSON { background-color: #ffcccc; }
-    .ORG { background-color: #ccffcc; }
-    .GPE { background-color: #ccccff; }
-    .DATE { background-color: #ffffcc; }
-    </style>
-    """, unsafe_allow_html=True)
+            st.write("No entities found in the text.")
+    else:
+        st.write("Please enter some text to analyze.")

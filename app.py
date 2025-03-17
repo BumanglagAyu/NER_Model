@@ -1,7 +1,8 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import spacy
-import pandas as pd
 from spacy import displacy
+import pandas as pd
 
 # Load trained NER model once
 @st.cache_resource
